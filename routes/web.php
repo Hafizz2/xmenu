@@ -53,11 +53,11 @@ Route::middleware(['auth', 'cafe'])->prefix('dashboard')->name('dashboard')->gro
     Route::post('/items/{item}/move', [Menu::class, 'moveItem'])->name('.items.move');
 
     Route::get('/import', [Menu::class, 'importForm'])->name('.import');
-    Route::post('/import', [Menu::class, 'import']);
+    Route::post('/import', [Menu::class, 'import'])->name('.import.store');
     Route::get('/import/template', [Menu::class, 'importTemplate'])->name('.import.template');
 
     Route::get('/info', [Settings::class, 'info'])->name('.info');
-    Route::put('/info', [Settings::class, 'updateInfo']);
+    Route::put('/info', [Settings::class, 'updateInfo'])->name('.info.update');
 
     Route::get('/payments', [Settings::class, 'payments'])->name('.payments');
     Route::post('/payments', [Settings::class, 'storePayment'])->name('.payments.store');
@@ -67,7 +67,7 @@ Route::middleware(['auth', 'cafe'])->prefix('dashboard')->name('dashboard')->gro
 
     Route::get('/design', [DesignController::class, 'edit'])->name('.design');
     Route::get('/preview', [PublicMenuController::class, 'preview'])->name('.preview');
-    Route::put('/design', [DesignController::class, 'update']);
+    Route::put('/design', [DesignController::class, 'update'])->name('.design.update');
 
     Route::get('/qr', [QrController::class, 'index'])->name('.qr');
     Route::get('/qr/preview', [QrController::class, 'preview'])->name('.qr.preview');
@@ -75,13 +75,13 @@ Route::middleware(['auth', 'cafe'])->prefix('dashboard')->name('dashboard')->gro
     Route::get('/qr/png', [QrController::class, 'png'])->name('.qr.png');
 
     Route::get('/games', [Settings::class, 'games'])->name('.games');
-    Route::put('/games', [Settings::class, 'updateGames']);
+    Route::put('/games', [Settings::class, 'updateGames'])->name('.games.update');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('.billing');
-    Route::post('/billing', [BillingController::class, 'store'])->middleware('throttle:10,1');
+    Route::post('/billing', [BillingController::class, 'store'])->middleware('throttle:10,1')->name('.billing.store');
 
     Route::get('/settings', [Settings::class, 'settings'])->name('.settings');
-    Route::put('/settings', [Settings::class, 'updateSettings']);
+    Route::put('/settings', [Settings::class, 'updateSettings'])->name('.settings.update');
     Route::put('/settings/password', [Settings::class, 'updatePassword'])->name('.password');
 });
 
@@ -119,7 +119,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/games/{game}/toggle', [Admin\PlatformController::class, 'toggleGame'])->name('games.toggle');
     Route::get('/logs', [Admin\PlatformController::class, 'logs'])->name('logs');
     Route::get('/settings', [Admin\PlatformController::class, 'settings'])->name('settings');
-    Route::put('/settings', [Admin\PlatformController::class, 'updateSettings']);
+    Route::put('/settings', [Admin\PlatformController::class, 'updateSettings'])->name('settings.update');
 });
 
 // Customer menu: must stay last so it doesn't swallow other routes.
