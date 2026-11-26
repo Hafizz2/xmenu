@@ -1,0 +1,10 @@
+# Games: the offline cache keeps them on the phone; the browser still checks for updates.
+# (Kept in its own file so it works on Apache and LiteSpeed, common on cPanel hosting.)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|js|css)$">
+        Header set Cache-Control "public, max-age=300, must-revalidate"
+    </FilesMatch>
+    <Files "sw.js">
+        Header set Cache-Control "no-cache"
+    </Files>
+</IfModule>

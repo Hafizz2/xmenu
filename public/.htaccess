@@ -41,7 +41,6 @@
     Header unset X-Powered-By
     Header always unset X-Powered-By
 </IfModule>
-ServerSignature Off
 
 # ---------- Speed: compress text, cache files that never change ----------
 <IfModule mod_deflate.c>
@@ -66,12 +65,4 @@ ServerSignature Off
     <FilesMatch "\.(css|js|webp|png|jpe?g)$">
         Header set Cache-Control "public, max-age=31536000, immutable"
     </FilesMatch>
-    # Games: the offline cache keeps them on the phone; the browser still checks for updates.
-    <If "%{REQUEST_URI} =~ m#^/games/#">
-        Header set Cache-Control "public, max-age=300, must-revalidate"
-    </If>
-    <Files "sw.js">
-        Header set Cache-Control "no-cache"
-        Header set Service-Worker-Allowed "/games/"
-    </Files>
 </IfModule>

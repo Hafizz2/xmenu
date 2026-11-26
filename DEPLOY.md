@@ -101,3 +101,58 @@ If you changed a game file, bump `VERSION` in `public/games/sw.js` so phones fet
 - Games are cached on the phone and work offline.
 
 For thousands of scans per minute, put the site behind Cloudflare (free plan is fine) and switch `CACHE_STORE` to `redis`.
+
+---
+
+# On cPanel hosting
+
+1. **PHP version** (cPanel → *MultiPHP Manager* or *Select PHP Version*): PHP 8.3 (8.2 minimum) for `xmenu.xvalue.et`.
+   Extensions on: `gd`, `exif`, `fileinfo`, `intl`, `mbstring`, `pdo_mysql`, `zip`, `opcache`.
+   *MultiPHP INI Editor*: `upload_max_filesize = 8M`, `post_max_size = 10M`, `memory_limit = 256M`, `max_execution_time = 60`.
+2. **Database** (*MySQL Database Wizard*): create database `xmenu` and user `xmenu` with all privileges.
+   cPanel adds your account prefix, e.g. `cpuser_xmenu`. Use the full names in `.env`.
+3. **Code** (*Terminal*): see the commands below; clones into `/home/CPUSER/xmenu`, outside `public_html`.
+4. **Subdomain** (*Domains* → Create / Manage `xmenu.xvalue.et`): set the **Document Root** to `xmenu/public`
+   (that is `/home/CPUSER/xmenu/public`). Untick "Share document root" if shown.
+5. **HTTPS** (*SSL/TLS Status*): tick `xmenu.xvalue.et` → *Run AutoSSL*.
+6. **Cron** (*Cron Jobs*): "Once per minute" with the command
+   `/usr/local/bin/php /home/CPUSER/xmenu/artisan schedule:run >> /dev/null 2>&1`
+
+Terminal (first time):
+
+```bash
+cd ~
+git clone https://github.com/Hafizz2/xmenu.git
+cd xmenu
+php -v                       # must say 8.2 or 8.3; if not, use /usr/local/bin/ea-php83 instead of php
+composer install --no-dev --optimize-autoloader    # if "composer: not found", see below
+cp .env.example .env
+nano .env                    # fill in as in "Production .env" above, with the cPanel database names
+php artisan key:generate
+php artisan migrate --force
+php artisan db:seed --force
+php artisan storage:link
+php artisan xmenu:admin you@xvalue.et
+php artisan optimize
+chmod -R 775 storage bootstrap/cache
+```
+
+No Composer on the server:
+
+```bash
+cd ~/xmenu
+curl -sS https://getcomposer.org/installer | php
+php composer.phar install --no-dev --optimize-autoloader
+```
+
+Every update on cPanel:
+
+```bash
+cd ~/xmenu
+php artisan down
+git pull origin main
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan optimize
+php artisan up
+```
