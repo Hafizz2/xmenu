@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Tic-Tac-Toe</title>
+<link rel="stylesheet" href="../kit/kit.css">
+<style>
+.ttt{position:relative;width:min(86vw,calc(100vh - 300px),420px);aspect-ratio:1;padding:6%;background:#FFFDF6;border-radius:6px;transform:rotate(-1.2deg);
+  background-image:linear-gradient(90deg,transparent 9%,rgba(214,69,69,.35) 9%,rgba(214,69,69,.35) calc(9% + 1.5px),transparent calc(9% + 1.5px)),repeating-linear-gradient(180deg,transparent 0 23px,rgba(70,110,200,.16) 23px 24px);
+  box-shadow:0 1px 1px rgba(0,0,0,.08),0 12px 28px -10px rgba(80,60,30,.35)}
+.ttt::before{content:'';position:absolute;left:50%;top:-12px;width:90px;height:24px;margin-left:-45px;background:rgba(240,225,170,.75);transform:rotate(2deg);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.board-lines{position:absolute;inset:6%;width:88%;height:88%;pointer-events:none}
+.board-lines path{stroke:#3B3A40;stroke-width:1.6;stroke-linecap:round;fill:none;opacity:.85;stroke-dasharray:120;stroke-dashoffset:120;animation:draw .5s ease-out forwards}
+.board-lines path:nth-child(2){animation-delay:.08s}.board-lines path:nth-child(3){animation-delay:.16s}.board-lines path:nth-child(4){animation-delay:.24s}
+.grid{position:relative;display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%}
+.cell{border:0;background:none;display:flex;align-items:center;justify-content:center;padding:0;border-radius:10px}
+.cell:not(.taken):active{background:rgba(35,80,184,.07)}
+.cell svg{width:66%;height:66%;fill:none;stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+.cell .m{stroke-dasharray:150;stroke-dashoffset:150;animation:draw .28s ease-out forwards}
+.cell .m2{animation-delay:.14s}
+@keyframes draw{to{stroke-dashoffset:0}}
+.cell.dim svg{opacity:.3;transition:opacity .4s}
+.line{position:absolute;inset:6%;pointer-events:none;width:88%;height:88%}
+.line path{stroke:#1C1B1F;stroke-width:2.2;stroke-linecap:round;fill:none;stroke-dasharray:200;stroke-dashoffset:200;animation:draw .45s .1s ease-out forwards}
+</style>
+</head><body>
+<script src="../kit/kit.js"></script>
+<script>
+(function () {
+  var X = '<svg viewBox="0 0 100 100"><path class="m" d="M24 23C40 40 60 60 77 78" stroke="var(--p1)"/><path class="m m2" d="M76 22C58 42 42 58 23 77" stroke="var(--p1)"/></svg>';
+  var O = '<svg viewBox="0 0 100 100"><path class="m" d="M52 22C33 20 21 36 23 53c2 17 17 27 33 24 16-3 24-18 21-33-3-13-13-21-27-21" stroke="var(--p2)" style="stroke-dasharray:200;stroke-dashoffset:200"/></svg>';
+  var LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  var board, cells, over, moves, t0, wrap, lineSvg;
+
+  var kit = XKit({
+    id: 'tictactoe', bg: '#EDE6D8', accent: '#2350B8', playerColors: ['#2350B8', '#D2373C'], marks: ['X', 'O'],
+    icon: '<path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',
+    title: { en: 'Tic-Tac-Toe', am: 'ኤክስ ኦ' },
+    desc: { en: 'Three in a row wins. Play a friend or take on the computer.', am: 'ሶስት በአንድ መስመር ያሸንፋል። ከጓደኛ ወይም ከኮምፒውተር ጋር ይጫወቱ።' },
+    rules: {
+      en: ['Players take turns placing X and O on the 3×3 grid.', 'Get three of your marks in a row, column or diagonal to win the round.', 'If the grid fills with no line, the round is a draw.', 'Rounds alternate who goes first. Win the most rounds to take the match.'],
+      am: ['ተጫዋቾች በተራ X እና O በ3×3 ሰሌዳው ላይ ያስቀምጣሉ።', 'ሶስት ምልክቶችን በረድፍ፣ በአምድ ወይም በሰያፍ ያሰለፈ ዙሩን ያሸንፋል።', 'ሰሌዳው ሞልቶ መስመር ካልተሰራ አቻ ነው።', 'በየዙሩ የሚጀምረው ይቀያየራል። ብዙ ዙር ያሸነፈ ውድድሩን ይወስዳል።']
+    },
+    modes: [{ id: 'ai', label: { en: 'vs Computer', am: 'ከኮምፒውተር' }, ai: true }, { id: 'pvp', label: { en: '2 players', am: '2 ተጫዋቾች' } }],
+    defaultTarget: 2,
+    newRound: function (S) {
+      board = Array(9).fill(null); over = false; moves = 0; t0 = Date.now();
+      kit.stage.innerHTML = '';
+      wrap = kit.el('div', 'ttt');
+      wrap.insertAdjacentHTML('beforeend', '<svg class="board-lines" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M33.5 3C33 35 34.2 66 33.2 97"/><path d="M66.6 2.5C67.2 36 66 64 66.9 97.5"/><path d="M3 33.6C36 33 64 34.4 97 33.3"/><path d="M2.5 66.4C35 67 66 66 97.5 66.8"/></svg>');
+      var grid = kit.el('div', 'grid'); wrap.appendChild(grid);
+      cells = [];
+      for (var i = 0; i < 9; i++) {
+        var c = kit.el('button', 'cell'); c.setAttribute('aria-label', 'Square ' + (i + 1)); c.dataset.i = i;
+        c.onclick = function () { human(+this.dataset.i); };
+        grid.appendChild(c); cells.push(c);
+      }
+      kit.stage.appendChild(wrap);
+      maybeAI();
+    }
+  });
+
+  function human(i) { if (over || board[i] || kit.state.isAI(kit.state.turn)) return; play(i); }
+  function play(i) {
+    var p = kit.state.turn; board[i] = p; moves++;
+    cells[i].innerHTML = p === 0 ? X : O; cells[i].classList.add('taken');
+    kit.sound('place'); kit.vibrate(12);
+    var w = winner(board);
+    if (w) return finish(w.p, w.line);
+    if (board.every(function (v) { return v !== null; })) return finish(-1);
+    kit.setTurn(1 - p); maybeAI();
+  }
+  function finish(p, line) {
+    over = true;
+    if (line) {
+      line.forEach(function (k) { cells[k].classList.add('win'); });
+      cells.forEach(function (c, k) { if (line.indexOf(k) < 0) c.classList.add('dim'); });
+      var a = center(line[0]), b = center(line[2]);
+      lineSvg = '<svg class="line" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M' + a + 'L' + b + '"/></svg>';
+      wrap.insertAdjacentHTML('beforeend', lineSvg);
+    }
+    var secs = Math.round((Date.now() - t0) / 1000);
+    kit.roundEnd(p, { stats: [[kit.lang === 'am' ? 'እንቅስቃሴ' : 'Moves', moves], [kit.lang === 'am' ? 'ጊዜ' : 'Time', Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0')], [kit.lang === 'am' ? 'ዙር' : 'Round', kit.state.round]] });
+  }
+  function center(k) { var x = (k % 3) * 33.33 + 16.66, y = Math.floor(k / 3) * 33.33 + 16.66; return x.toFixed(1) + ' ' + y.toFixed(1); }
+  function winner(b) {
+    for (var i = 0; i < LINES.length; i++) { var l = LINES[i]; if (b[l[0]] !== null && b[l[0]] === b[l[1]] && b[l[1]] === b[l[2]]) return { p: b[l[0]], line: l }; }
+    return null;
+  }
+
+  // ---------- Computer opponent ----------
+  function maybeAI() {
+    var S = kit.state;
+    if (over || !S.isAI(S.turn)) return;
+    kit.setTurn(S.turn, true);
+    var token = S.token;
+    setTimeout(function () { if (token !== S.token || over) return; play(choose()); }, 450 + Math.random() * 350);
+  }
+  function free(b) { var r = []; for (var i = 0; i < 9; i++) if (b[i] === null) r.push(i); return r; }
+  function choose() {
+    var d = kit.state.diff, f = free(board);
+    // Always take a win; block on medium+.
+    var win = findLine(1), block = findLine(0);
+    if (win != null) return win;
+    if (d === 'easy') return Math.random() < 0.5 && block != null ? block : f[Math.floor(Math.random() * f.length)];
+    if (d === 'medium' && Math.random() < 0.3) return block != null ? block : f[Math.floor(Math.random() * f.length)];
+    var best = -Infinity, move = f[0];
+    f.forEach(function (i) { board[i] = 1; var s = minimax(board, 0, false); board[i] = null; if (s > best) { best = s; move = i; } });
+    return move;
+  }
+  function findLine(p) {
+    var f = free(board);
+    for (var k = 0; k < f.length; k++) { board[f[k]] = p; var w = winner(board); board[f[k]] = null; if (w) return f[k]; }
+    return null;
+  }
+  function minimax(b, depth, maxing) {
+    var w = winner(b); if (w) return w.p === 1 ? 10 - depth : depth - 10;
+    var f = free(b); if (!f.length) return 0;
+    var best = maxing ? -Infinity : Infinity;
+    for (var i = 0; i < f.length; i++) { b[f[i]] = maxing ? 1 : 0; var s = minimax(b, depth + 1, !maxing); b[f[i]] = null; best = maxing ? Math.max(best, s) : Math.min(best, s); }
+    return best;
+  }
+})();
+</script>
+</body></html>

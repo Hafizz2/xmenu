@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Reaction Duel</title>
+<link rel="stylesheet" href="../kit/kit.css">
+<style>
+.xk-stage{padding:0}
+.duel{position:absolute;inset:0;display:flex;flex-direction:column}
+.half{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .15s;overflow:hidden;border:0;color:#fff;padding:20px}
+.half.top{transform:rotate(180deg)}
+.half.p0{background:var(--p1)}
+.half.p1{background:var(--p2)}
+.half.flash{background:#fff!important;color:#1C1B1F}
+.half .who{font-size:16px;font-weight:650;opacity:.85}
+.half .msg{font-size:clamp(30px,8vw,48px);font-weight:800;letter-spacing:-.02em;text-align:center;line-height:1.05}
+.half .ms{font-size:16px;font-weight:600;opacity:.9;height:20px;font-variant-numeric:tabular-nums}
+.pips{display:flex;gap:7px;margin-top:8px}
+.pips i{width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.3);transition:background .2s,transform .2s}
+.pips i.on{background:#fff;transform:scale(1.1)}
+.sig{position:absolute;left:50%;top:50%;z-index:6;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background .08s,transform .15s;background:#2A2A30;border:6px solid #fff;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.sig svg{width:40px;height:40px;stroke:#fff;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.sig.wait{background:#F5A524}
+.sig.go{background:#1FA45A;transform:scale(1.2)}
+/* in a duel the controls sit beside the centre light, out of both players' way */
+body:has(.duel) .xk-bar.compact{right:auto;left:10px;top:50%;transform:translateY(-50%);flex-direction:column}
+.solo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;padding:24px;text-align:center;transition:background .08s;background:#2A2A30;color:#fff}
+.solo.go{background:#1FA45A}
+.solo.wait{background:#C9841A}
+.solo.bad{background:#C4322B}
+.solo .msg{font-size:clamp(32px,9vw,56px);font-weight:800;letter-spacing:-.02em}
+.solo .sub{font-size:17px;color:rgba(255,255,255,.85);max-width:320px;line-height:1.4}
+.tries{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+.tries span{min-width:62px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.14);font-weight:650;font-size:15px;font-variant-numeric:tabular-nums}
+</style>
+</head><body>
+<script src="../kit/kit.js"></script>
+<script>
+(function () {
+  var I = { wait: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', go: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', ok: '<path d="M20 6 9 17l-5-5"/>' };
+  var state, timer, goAt, points, pts, need, tries;
+  var A = function (en, am) { return kit.lang === 'am' ? am : en; };
+
+  var kit = XKit({
+    id: 'tapduel', bg: '#2A2A30', accent: '#1FA45A', playerColors: ['#2F5BD3', '#E2621B'], compactBar: true, scoreboard: false, hideHint: true, series: false,
+    icon: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+    title: { en: 'Reaction Duel', am: 'የፍጥነት ውድድር' },
+    desc: { en: 'Who has the fastest thumb at the table? Wait for green, then tap.', am: 'በጠረጴዛው ላይ ፈጣኑ ማነው? አረንጓዴ እስኪሆን ይጠብቁ፣ ከዚያ ይንኩ።' },
+    rules: {
+      en: ['Put the phone flat between you. Each player owns the half facing them.', 'Wait while the centre light is amber.', 'The moment it turns green, tap your half. The fastest tap wins the point.', 'Tap too early and your opponent gets the point.', 'Solo mode: test your reflexes over five tries.'],
+      am: ['ስልኩን በመካከላችሁ ያስቀምጡ። እያንዳንዱ ተጫዋች ወደ እሱ ያለውን ግማሽ ይጠቀማል።', 'መሃሉ ብርቱካናማ ሲሆን ይጠብቁ።', 'አረንጓዴ ሲሆን የራስዎን ግማሽ ይንኩ። ፈጣኑ ነጥብ ያገኛል።', 'ቀድመው ከነኩ ነጥቡ ለተቃዋሚዎ ይሆናል።', 'ብቻዎን፡ ፍጥነትዎን በአምስት ሙከራዎች ይፈትኑ።']
+    },
+    modes: [
+      { id: 'duel', label: { en: '2 players', am: '2 ተጫዋቾች' }, options: { label: { en: 'First to', am: 'ቀድሞ' }, def: '5', items: [{ id: '3', label: '3' }, { id: '5', label: '5' }, { id: '7', label: '7' }] } },
+      { id: 'solo', solo: true, label: { en: 'Solo', am: 'ብቻዬን' } }
+    ],
+    newRound: function (S) {
+      clearTimeout(timer); kit.stage.innerHTML = '';
+      if (S.isSolo()) return soloStart();
+      need = +(S.opt || 5); pts = [0, 0];
+      var d = kit.el('div', 'duel');
+      d.innerHTML = half('top', 1) + '<div class="sig" id="sig"><svg viewBox="0 0 24 24">' + I.wait + '</svg></div>' + half('bot', 0);
+      kit.stage.appendChild(d);
+      [['top', 1], ['bot', 0]].forEach(function (h) {
+        d.querySelector('.' + h[0]).addEventListener('pointerdown', function (e) { e.preventDefault(); tap(h[1]); });
+      });
+      paint(); setTimeout(ready, 600);
+    }
+  });
+
+  function half(pos, p) {
+    var pips = ''; for (var i = 0; i < +(kit.state.opt || 5); i++) pips += '<i></i>';
+    return '<button class="half ' + pos + ' p' + p + '" data-p="' + p + '"><div class="who">' + kit.esc(kit.name(p)) + '</div><div class="msg"></div><div class="ms"></div><div class="pips">' + pips + '</div></button>';
+  }
+  function H(p) { return kit.stage.querySelector('.half[data-p="' + p + '"]'); }
+  function msg(p, text, ms) { var h = H(p); h.querySelector('.msg').textContent = text; h.querySelector('.ms').textContent = ms || ''; }
+  function paint() { [0, 1].forEach(function (p) { Array.prototype.forEach.call(H(p).querySelectorAll('.pips i'), function (i, k) { i.classList.toggle('on', k < pts[p]); }); }); }
+  function sig(kind) { var s = document.getElementById('sig'); s.className = 'sig ' + kind; s.innerHTML = '<svg viewBox="0 0 24 24">' + (I[kind] || I.ok) + '</svg>'; }
+
+  function ready() {
+    var token = kit.state.token; state = 'wait'; sig('wait');
+    msg(0, A('Wait…', 'ይጠብቁ…')); msg(1, A('Wait…', 'ይጠብቁ…'));
+    timer = setTimeout(function () { if (token !== kit.state.token) return; state = 'go'; goAt = performance.now(); sig('go'); kit.sound('go'); msg(0, A('TAP!', 'ይንኩ!')); msg(1, A('TAP!', 'ይንኩ!')); }, 1400 + Math.random() * 3200);
+  }
+  function tap(p) {
+    if (state === 'wait') {
+      clearTimeout(timer); state = 'done'; var o = 1 - p; pts[o]++; kit.sound('miss'); kit.vibrate(80);
+      msg(p, A('Too early!', 'ቀደሙ!')); msg(o, A('Point!', 'ነጥብ!'), A('They jumped the gun', 'ተቃዋሚዎ ቀደመ'));
+      return next(o);
+    }
+    if (state === 'go') {
+      state = 'done'; var ms = Math.round(performance.now() - goAt); pts[p]++; kit.sound('match'); kit.vibrate(30);
+      var h = H(p); h.classList.add('flash'); setTimeout(function () { h.classList.remove('flash'); }, 160);
+      msg(p, A('Point!', 'ነጥብ!'), ms + ' ms'); msg(1 - p, A('Too slow', 'ዘገዩ'), '');
+      return next(p, ms);
+    }
+  }
+  function next(w, ms) {
+    paint(); sig('ok');
+    if (pts[w] >= need) {
+      state = 'over';
+      return kit.roundEnd(w, { solo: true, title: kit.name(w) + ' ' + kit.t('wins'), sub: pts[0] + ' : ' + pts[1], stats: [[kit.name(0), pts[0]], [kit.name(1), pts[1]], [A('Last tap', 'የመጨረሻ'), ms ? ms + ' ms' : '—']], delay: 900 });
+    }
+    var token = kit.state.token; setTimeout(function () { if (token === kit.state.token) ready(); }, 1500);
+  }
+
+  // ---------- Solo reflex test ----------
+  function soloStart() {
+    tries = []; var s = kit.el('div', 'solo'); kit.stage.appendChild(s);
+    s.addEventListener('pointerdown', function (e) { e.preventDefault(); soloTap(s); });
+    soloIdle(s);
+  }
+  function soloIdle(s) {
+    state = 'idle'; s.className = 'solo';
+    s.innerHTML = '<div class="msg">' + A('Tap to start', 'ለመጀመር ይንኩ') + '</div><div class="sub">' + A('Try ' + (tries.length + 1) + ' of 5. Wait for green, then tap as fast as you can.', 'ሙከራ ' + (tries.length + 1) + ' ከ5። አረንጓዴ ሲሆን በፍጥነት ይንኩ።') + '</div>' + triesHtml();
+  }
+  function triesHtml() { return '<div class="tries">' + tries.map(function (t) { return '<span>' + t + '</span>'; }).join('') + '</div>'; }
+  function soloTap(s) {
+    var token = kit.state.token;
+    if (state === 'idle' || state === 'bad') {
+      state = 'wait'; s.className = 'solo wait'; s.innerHTML = '<div class="msg">' + A('Wait for green…', 'አረንጓዴን ይጠብቁ…') + '</div>' + triesHtml();
+      timer = setTimeout(function () { if (token !== kit.state.token) return; state = 'go'; goAt = performance.now(); s.className = 'solo go'; s.innerHTML = '<div class="msg">' + A('TAP!', 'ይንኩ!') + '</div>'; kit.sound('go'); }, 1200 + Math.random() * 3000);
+    } else if (state === 'wait') {
+      clearTimeout(timer); state = 'bad'; s.className = 'solo bad'; kit.sound('miss'); kit.vibrate(80);
+      s.innerHTML = '<div class="msg">' + A('Too soon!', 'ቀደሙ!') + '</div><div class="sub">' + A('Tap to try again.', 'እንደገና ለመሞከር ይንኩ።') + '</div>' + triesHtml();
+    } else if (state === 'go') {
+      var ms = Math.round(performance.now() - goAt); tries.push(ms); kit.sound('match'); kit.vibrate(20);
+      if (tries.length >= 5) {
+        state = 'over';
+        var avg = Math.round(tries.reduce(function (a, b) { return a + b; }, 0) / tries.length), best = Math.min.apply(null, tries);
+        var rec = +localStorage.getItem('xk_react_best') || 0, isRec = !rec || avg < rec; if (isRec) localStorage.setItem('xk_react_best', avg);
+        var rating = avg < 230 ? A('Lightning fast', 'እንደ መብረቅ ፈጣን') : avg < 300 ? A('Sharp reflexes', 'ፈጣን') : avg < 380 ? A('Nice and steady', 'ጥሩ') : A('Keep practising', 'ልምምድ ይቀጥሉ');
+        s.innerHTML = '<div class="msg">' + avg + ' ms</div>';
+        return kit.roundEnd(0, { solo: true, title: rating, sub: isRec ? A('New personal best average!', 'አዲስ ምርጥ አማካይ!') : A('Your best average is ', 'ምርጥ አማካይዎ ') + rec + ' ms',
+          stats: [[A('Average', 'አማካይ'), avg + ' ms'], [A('Fastest', 'ፈጣኑ'), best + ' ms'], [A('Tries', 'ሙከራ'), tries.length]], delay: 500 });
+      }
+      state = 'bad'; s.className = 'solo'; s.innerHTML = '<div class="msg">' + ms + ' ms</div><div class="sub">' + A('Tap for the next try.', 'ለቀጣዩ ሙከራ ይንኩ።') + '</div>' + triesHtml();
+    }
+  }
+})();
+</script>
+</body></html>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Memory Match</title>
+<link rel="stylesheet" href="../kit/kit.css">
+<style>
+.mm{display:grid;gap:8px}
+.card{width:var(--s);height:var(--s);perspective:800px;border:0;padding:0;background:none;cursor:pointer}
+.in{position:relative;width:100%;height:100%;transition:transform .42s cubic-bezier(.3,1.25,.5,1);transform-style:preserve-3d}
+.card.up .in{transform:rotateY(180deg)}
+.card:not(.up):active .in{transform:scale(.95)}
+.f,.bk{position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.bk{background:#FBF8F1;box-shadow:0 1px 0 rgba(0,0,0,.06),0 6px 14px -8px rgba(80,60,30,.45),inset 0 0 0 1px rgba(0,0,0,.05)}
+.bk svg{width:100%;height:100%}
+.f{background:#fff;transform:rotateY(180deg);box-shadow:0 6px 14px -8px rgba(80,60,30,.45),inset 0 0 0 1px rgba(0,0,0,.06)}
+.f svg{width:58%;height:58%;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.card.done .f{animation:got .45s ease}
+.card.done{cursor:default}
+.card.done .f::after{content:'';position:absolute;inset:0;border-radius:12px;box-shadow:inset 0 0 0 3px var(--owner,#0F6B4F)}
+@keyframes got{40%{transform:rotateY(180deg) scale(1.1)}}
+.card.shake .in{animation:shake .35s}
+@keyframes shake{0%,100%{transform:rotateY(180deg)}25%{transform:rotateY(180deg) translateX(-5px)}75%{transform:rotateY(180deg) translateX(5px)}}
+</style>
+</head><body>
+<script src="../kit/kit.js"></script>
+<script>
+(function () {
+  var ICONS = {
+    coffee: ['#8B5E3C', '<path d="M4 8h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 9h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 2.5c-.6.8-.6 1.7 0 2.5M12 2.5c-.6.8-.6 1.7 0 2.5"/>'],
+    cake: ['#DB2777', '<path d="M4 21v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8"/><path d="M4 15.5c1.5 1 3 1 4 0s3-1 4 0 3 1 4 0 3-1 4 0"/><path d="M2 21h20M12 11V7.5"/>'],
+    pizza: ['#EA580C', '<path d="M12 21.5 3.5 6.5a14.5 14.5 0 0 1 17 0z"/><circle cx="12" cy="12" r="1.2"/><circle cx="10" cy="15.6" r="1"/><circle cx="14.7" cy="10" r="1"/>'],
+    burger: ['#B45309', '<path d="M4 11a8 6 0 0 1 16 0z"/><path d="M3 14.5h18"/><path d="M4 17.5h16v.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18z"/>'],
+    juice: ['#16A34A', '<path d="M6 8h12l-1.4 12.2a1.5 1.5 0 0 1-1.5 1.3H8.9a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M13 8l2-5.5h3"/><path d="M6.6 13h10.8"/>'],
+    tea: ['#0F766E', '<path d="M4 10h13v3a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M10.5 10V4.5"/><rect x="8.5" y="2" width="4" height="3.5" rx=".8"/>'],
+    icecream: ['#9333EA', '<path d="M7.5 11h9L12 22z"/><path d="M7 11a5 5 0 0 1 10 0"/>'],
+    fries: ['#CA8A04', '<path d="M5.5 10h13l-1.6 11h-9.8z"/><path d="M8 10 7 3M11 10V2M14 10l.5-7M16.5 10 18 4"/>'],
+    wine: ['#9F1239', '<path d="M8 2h8l-.5 6.5a3.5 3.5 0 0 1-7 0z"/><path d="M12 12v9M8 21h8"/>'],
+    cocktail: ['#0284C7', '<path d="M4 4h16l-8 9z"/><path d="M12 13v8M8 21h8"/>'],
+    salad: ['#65A30D', '<path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M8 12c0-3 1.5-5 4-6M12.5 12c0-2.5 1.5-4.5 4.5-5.5"/>'],
+    fish: ['#2563EB', '<path d="M5 12c2.5-3.5 6-5.5 9.5-5.5S20 9 22 12c-2 3-4.5 5.5-7.5 5.5S7.5 15.5 5 12z"/><path d="M5 12 2 8.5v7z"/>'],
+    bread: ['#A16207', '<path d="M5 10.5A3.8 3.8 0 0 1 6.5 3h11A3.8 3.8 0 0 1 19 10.5V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>'],
+    star: ['#F59E0B', '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3l-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/>'],
+    heart: ['#E11D48', '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>']
+  };
+  var SIZES = { s: [4, 4], m: [4, 5], l: [5, 6] };
+  var opts = { label: { en: 'Board', am: 'ሰሌዳ' }, def: 'm', items: [{ id: 's', label: '4 × 4' }, { id: 'm', label: '4 × 5' }, { id: 'l', label: '5 × 6' }] };
+  var deck, cards, open, lock, matched, pairs, moves, t0, timer, memory, size, pausedAt = 0;
+
+  var kit = XKit({
+    id: 'memory', bg: '#E9E2D3', accent: '#0F6B4F', playerColors: ['#D2373C', '#2350B8'],
+    icon: '<rect x="3" y="4" width="8" height="11" rx="2"/><rect x="13" y="9" width="8" height="11" rx="2"/>',
+    title: { en: 'Memory Match', am: 'የማስታወስ ጨዋታ' },
+    desc: { en: 'Flip two cards at a time and find every pair.', am: 'በአንድ ጊዜ ሁለት ካርዶችን ገልብጠው ጥንዶቹን ያግኙ።' },
+    rules: {
+      en: ['Tap a card to flip it, then flip a second one.', 'If the two pictures match, they stay face up and you score a pair.', 'In two-player games a match gives you another turn; a miss passes the turn.', 'Solo: clear the board in as few moves and as little time as you can.'],
+      am: ['ካርድ ለመግለጥ ይንኩ፣ ከዚያ ሁለተኛውን ይግለጡ።', 'ሁለቱ ስዕሎች ከተመሳሰሉ ተገልጠው ይቆያሉ እና ጥንድ ያገኛሉ።', 'በሁለት ተጫዋች ጨዋታ ጥንድ ካገኙ እንደገና ይጫወታሉ፤ ካልሆነ ተራው ያልፋል።', 'ብቻዎን፡ ሰሌዳውን በትንሽ እንቅስቃሴና ጊዜ ያጽዱ።']
+    },
+    modes: [
+      { id: 'solo', solo: true, label: { en: 'Solo', am: 'ብቻዬን' }, options: opts },
+      { id: 'pvp', label: { en: '2 players', am: '2 ተጫዋቾች' }, options: opts },
+      { id: 'ai', ai: true, label: { en: 'vs Computer', am: 'ከኮምፒውተር' }, options: opts }
+    ],
+    defaultTarget: 1,
+    // The clock stops while the pause menu is open.
+    onPause: function () { pausedAt = Date.now(); clearInterval(timer); },
+    onResume: function () { if (!pausedAt) return; t0 += Date.now() - pausedAt; pausedAt = 0; if (kit.state.isSolo() && matched < deck.length / 2) { tick(); timer = setInterval(tick, 1000); } },
+    newRound: function (S) {
+      size = SIZES[S.opt || 'm']; var n = size[0] * size[1] / 2;
+      var keys = Object.keys(ICONS).sort(function () { return Math.random() - .5; }).slice(0, n);
+      deck = keys.concat(keys).sort(function () { return Math.random() - .5; });
+      open = []; lock = false; matched = 0; pairs = [0, 0]; moves = 0; t0 = Date.now(); memory = {};
+      clearInterval(timer);
+      kit.stage.innerHTML = '';
+      var cols = size[0], rows = size[1];
+      var s = Math.floor(Math.min((Math.min(innerWidth, 640) - 28 - (cols - 1) * 8) / cols, (innerHeight - (S.isSolo() ? 250 : 300) - (rows - 1) * 8) / rows, 110));
+      var grid = kit.el('div', 'mm'); grid.style.gridTemplateColumns = 'repeat(' + cols + ',' + s + 'px)'; grid.style.setProperty('--s', s + 'px');
+      cards = deck.map(function (k, i) {
+        var c = kit.el('button', 'card'); c.dataset.i = i; c.setAttribute('aria-label', 'Card ' + (i + 1));
+        c.innerHTML = '<div class="in"><div class="bk"><svg viewBox="0 0 60 60" preserveAspectRatio="none"><rect x="4" y="4" width="52" height="52" rx="5" fill="none" stroke="#0F6B4F" stroke-width=".8" opacity=".5"/><rect x="0" y="23" width="60" height="14" fill="#0F6B4F"/><path d="M0 22h60M0 38h60" stroke="#D2373C" stroke-width="1.4"/><path d="M0 20h60M0 40h60" stroke="#F2B705" stroke-width=".9"/><path d="M2 30l5-5 5 5-5 5zM14 30l5-5 5 5-5 5zM26 30l4-5 4 5-4 5zM38 30l5-5 5 5-5 5zM50 30l5-5 5 5-5 5z" fill="#F2B705"/><path d="M5.5 30l1.5-1.5 1.5 1.5-1.5 1.5zM17.5 30l1.5-1.5 1.5 1.5-1.5 1.5zM28.5 30l1.5-1.5 1.5 1.5-1.5 1.5zM41.5 30l1.5-1.5 1.5 1.5-1.5 1.5zM53.5 30l1.5-1.5 1.5 1.5-1.5 1.5z" fill="#D2373C"/></svg></div><div class="f"><svg viewBox="0 0 24 24" style="stroke:' + ICONS[k][0] + '">' + ICONS[k][1] + '</svg></div></div>';
+        c.onclick = function () { human(i); };
+        grid.appendChild(c); return c;
+      });
+      kit.stage.appendChild(grid);
+      if (S.isSolo()) {
+        tick(); timer = setInterval(tick, 1000);
+        kit.hint(kit.lang === 'am' ? 'ጥንዶቹን ያግኙ' : 'Find all ' + n + ' pairs');
+      }
+      maybeAI();
+    }
+  });
+
+  function fmt(sec) { return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+  function tick() { kit.setSoloScore(fmt(Math.round((Date.now() - t0) / 1000)), moves + (kit.lang === 'am' ? ' እንቅስቃሴ' : (moves === 1 ? ' move' : ' moves'))); }
+  function human(i) { if (lock || kit.state.isAI(kit.state.turn)) return; flip(i); }
+  function flip(i) {
+    var c = cards[i]; if (c.classList.contains('up')) return;
+    c.classList.add('up'); kit.sound('flip'); open.push(i); memory[i] = deck[i];
+    if (open.length < 2) return;
+    lock = true; moves++;
+    var a = open[0], b = open[1], S = kit.state;
+    if (deck[a] === deck[b]) {
+      setTimeout(function () {
+        [a, b].forEach(function (k) { cards[k].classList.add('done'); cards[k].style.setProperty('--owner', S.isSolo() ? '#0F6B4F' : 'var(--p' + (S.turn + 1) + ')'); delete memory[k]; });
+        kit.sound('match'); kit.vibrate(20); matched++; pairs[S.turn]++; open = []; lock = false;
+        if (!S.isSolo()) { S.score = S.score; document.querySelectorAll('.xk-p .sc')[S.turn].textContent = pairs[S.turn]; }
+        if (matched === deck.length / 2) return end();
+        if (S.isSolo()) tick(); else { kit.setTurn(S.turn); maybeAI(); }
+      }, 380);
+    } else {
+      setTimeout(function () { cards[a].classList.add('shake'); cards[b].classList.add('shake'); kit.sound('miss'); }, 450);
+      setTimeout(function () {
+        [a, b].forEach(function (k) { cards[k].classList.remove('up', 'shake'); });
+        open = []; lock = false;
+        if (S.isSolo()) tick(); else { kit.setTurn(1 - S.turn); maybeAI(); }
+      }, 1050);
+    }
+  }
+  function end() {
+    clearInterval(timer);
+    var S = kit.state, secs = Math.round((Date.now() - t0) / 1000);
+    if (S.isSolo()) {
+      var key = 'xk_mem_best_' + (S.opt || 'm'), best = +localStorage.getItem(key) || 0, isBest = !best || secs < best;
+      if (isBest) localStorage.setItem(key, secs);
+      return kit.roundEnd(0, { solo: true, title: kit.lang === 'am' ? 'ሰሌዳው ጸዳ!' : 'Board cleared!', sub: isBest ? (kit.lang === 'am' ? 'አዲስ ምርጥ ጊዜ!' : 'New personal best!') : (kit.lang === 'am' ? 'ምርጥ ጊዜዎ ' : 'Your best is ') + fmt(best),
+        stats: [[kit.lang === 'am' ? 'ጊዜ' : 'Time', fmt(secs)], [kit.lang === 'am' ? 'እንቅስቃሴ' : 'Moves', moves], [kit.lang === 'am' ? 'ትክክለኛነት' : 'Accuracy', Math.round(deck.length / 2 / moves * 100) + '%']] });
+    }
+    var w = pairs[0] === pairs[1] ? -1 : (pairs[0] > pairs[1] ? 0 : 1);
+    kit.roundEnd(w, { stats: [[kit.name(0), pairs[0]], [kit.name(1), pairs[1]], [kit.lang === 'am' ? 'ጊዜ' : 'Time', fmt(secs)]] });
+  }
+
+  // ---------- Computer memory: remembers seen cards with a chance based on difficulty ----------
+  function maybeAI() {
+    var S = kit.state; if (!S.isAI(S.turn) || matched === deck.length / 2) return;
+    kit.setTurn(S.turn, true);
+    var token = S.token, recall = { easy: .3, medium: .65, hard: .95 }[S.diff];
+    var hidden = cards.map(function (c, i) { return i; }).filter(function (i) { return !cards[i].classList.contains('up'); });
+    var known = Object.keys(memory).map(Number).filter(function (i) { return hidden.indexOf(i) > -1; });
+    var first = null, second = null;
+    for (var x = 0; x < known.length && first === null; x++) for (var y = x + 1; y < known.length; y++) if (deck[known[x]] === deck[known[y]] && Math.random() < recall) { first = known[x]; second = known[y]; break; }
+    if (first === null) { var unknown = hidden.filter(function (i) { return !(i in memory); }); var pool = unknown.length ? unknown : hidden; first = pool[Math.floor(Math.random() * pool.length)]; }
+    setTimeout(function () {
+      if (token !== S.token) return; flip(first);
+      if (second === null) {
+        var match = Object.keys(memory).map(Number).filter(function (i) { return i !== first && deck[i] === deck[first] && hidden.indexOf(i) > -1; })[0];
+        if (match !== undefined && Math.random() < recall) second = match;
+        else { var rest = hidden.filter(function (i) { return i !== first && !(i in memory); }); if (!rest.length) rest = hidden.filter(function (i) { return i !== first; }); second = rest[Math.floor(Math.random() * rest.length)]; }
+      }
+      setTimeout(function () { if (token !== S.token) return; flip(second); }, 650);
+    }, 700);
+  }
+})();
+</script>
+</body></html>
